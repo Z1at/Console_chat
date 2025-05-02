@@ -1,7 +1,5 @@
 import socket
 import threading
-# from Main import self.ENCODING
-# from Main import self.logger
 
 
 class ClientHandler(threading.Thread):
@@ -18,13 +16,14 @@ class ClientHandler(threading.Thread):
             client_address: Адрес клиента (IP, port).
             server: Ссылка на объект сервера.
         """
+
         super().__init__()
         self.client_socket = client_socket
         self.client_address = client_address
         self.server = server
         self.username = None
         self.is_running = True  # Флаг для управления потоком
-        self.client_socket.settimeout(60)  # Установка таймаута сокета
+        # self.client_socket.settimeout(60)  # Установка таймаута сокета
         self.logger = logger
         self.ENCODING = encoding
 
@@ -32,10 +31,11 @@ class ClientHandler(threading.Thread):
         """
         Основной цикл обработки сообщений от клиента.
         """
+
         try:
             self.username = self.get_username()
             if not self.username:
-                self.close_connection()  # Если не удалось получить имя, закрываем соединение
+                # self.close_connection()  # Если не удалось получить имя, закрываем соединение
                 return
 
             self.server.broadcast(f"{self.username} присоединился к чату.", exclude=self)
@@ -49,9 +49,9 @@ class ClientHandler(threading.Thread):
 
                     self.handle_message(message)
 
-                except socket.timeout:
-                    self.logger.warning(f"Превышено время ожидания от {self.username}. Закрытие соединения.")
-                    break  # Прекращаем обработку клиента при таймауте сокета
+                # except socket.timeout:
+                #     self.logger.warning(f"Превышено время ожидания от {self.username}. Закрытие соединения.")
+                #     break  # Прекращаем обработку клиента при таймауте сокета
                 except (ConnectionResetError, OSError) as e:
                     self.logger.warning(f"Ошибка при получении сообщения от {self.username}: {e}")
                     break  # Прекращаем обработку клиента при ошибке сокета
@@ -66,22 +66,26 @@ class ClientHandler(threading.Thread):
         Returns:
             str: Имя пользователя, или None если не удалось получить имя.
         """
+
         try:
-            self.client_socket.send("Введите имя пользователя: ".encode(self.ENCODING))
-            self.client_socket.settimeout(10)  # Таймаут для получения имени пользователя
-            username = self.client_socket.recv(1024).decode(self.ENCODING).strip()
-            self.client_socket.settimeout(60)  # Сбрасываем таймаут для дальнейшей работы
-            if not username:
-                self.client_socket.send("Имя пользователя не может быть пустым.\n".encode(self.ENCODING))
-                return None
-            if self.server.is_username_taken(username):
-                self.client_socket.send("Это имя пользователя уже занято.\n".encode(self.ENCODING))
-                return None
-            return username
-        except socket.timeout:
-            self.client_socket.send("Превышено время ввода имени пользователя.\n".encode(self.ENCODING))
-            self.logger.warning(f"Не удалось получить имя пользователя от {self.client_address} (таймаут)")
-            return None  #Возврат None при таймауте
+            while True:
+                self.client_socket.send("Введите имя пользователя: ".encode(self.ENCODING))
+                # self.client_socket.settimeout(10)  # Таймаут для получения имени пользователя
+                username = self.client_socket.recv(1024).decode(self.ENCODING).strip()
+                # self.client_socket.settimeout(60)  # Сбрасываем таймаут для дальнейшей работы
+                if not username:
+                    self.client_socket.send("Имя пользователя не может быть пустым.\n".encode(self.ENCODING))
+                    # return None
+                if self.server.is_username_taken(username):
+                    self.client_socket.send("Это имя пользователя уже занято.\n".encode(self.ENCODING))
+                    # return None
+                else:
+                    self.client_socket.send("Добро пожаловать в чат!".encode(self.ENCODING))
+                    return username
+        # except socket.timeout:
+        #     self.client_socket.send("Превышено время ввода имени пользователя.\n".encode(self.ENCODING))
+        #     self.logger.warning(f"Не удалось получить имя пользователя от {self.client_address} (таймаут)")
+        #     return None  # Возврат None при таймауте
         except (ConnectionResetError, OSError):
             self.logger.warning(f"Не удалось получить имя пользователя от {self.client_address}")
             return None
@@ -93,11 +97,12 @@ class ClientHandler(threading.Thread):
         Args:
             message (str): Текст сообщения.
         """
+
         if message.startswith("/to "):
             self.send_private_message(message)
         else:
             self.server.broadcast(f"[{self.username}]: {message}", exclude=self)
-            self.logger.info(f"[{self.username}]: {message}")  #логирование
+            self.logger.info(f"[{self.username}]: {message}")  # логирование
 
     def send_private_message(self, message):
         """
@@ -106,6 +111,7 @@ class ClientHandler(threading.Thread):
         Args:
             message (str): Текст сообщения, начинающийся с "/to".
         """
+
         try:
             parts = message.split(" ", 2)
             if len(parts) < 3:
@@ -120,7 +126,8 @@ class ClientHandler(threading.Thread):
             recipient = self.server.get_client_by_username(recipient_username)
 
             if recipient:
-                recipient.client_socket.send(f"[Приватное от {self.username}]: {private_message}\n".encode(self.ENCODING))
+                recipient.client_socket.send(
+                    f"[Приватное от {self.username}]: {private_message}\n".encode(self.ENCODING))
                 self.client_socket.send(
                     f"Вы отправили приватное сообщение {recipient_username}: {private_message}\n".encode(self.ENCODING))
                 self.logger.info(
@@ -135,6 +142,7 @@ class ClientHandler(threading.Thread):
         """
         Закрывает соединение с клиентом и выполняет очистку.
         """
+
         if self.username:
             self.server.broadcast(f"{self.username} покинул чат.",
                                   exclude=self)  # отправляем сообщение о выходе другим пользователям
@@ -153,16 +161,18 @@ def run_client(host, port, logger, ENCODING):
     """
     Функция для запуска клиента чата.
     """
+
     try:
         client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         client_socket.connect((host, port))
-        client_socket.settimeout(60)  # Таймаут для сокета клиента
+        # client_socket.settimeout(60)  # Таймаут для сокета клиента
         logger.info(f"Подключено к серверу {host}:{port}")
 
         def receive_messages():
             """
             Поток для получения сообщений от сервера.
             """
+
             while True:
                 try:
                     message = client_socket.recv(1024).decode(ENCODING)
