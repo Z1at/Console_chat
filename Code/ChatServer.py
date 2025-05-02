@@ -39,13 +39,10 @@ class ChatServer:
             while True:
                 try:
                     client_socket, client_address = self.server_socket.accept()
-                    # client_socket.settimeout(60)  # Таймаут для сокета клиента
                     self.logger.info(f"Принято подключение от {client_address}")
                     client_handler = ClientHandler(client_socket, client_address, self, self.logger, self.ENCODING)
                     client_handler.daemon = True  # Поток-демон
                     client_handler.start()
-                # except socket.timeout:
-                #     self.logger.warning("Превышено время ожидания подключения.")
                 except OSError as e:
                     self.logger.error(f"Ошибка при принятии соединения: {e}")
                     break

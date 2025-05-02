@@ -23,7 +23,6 @@ class ClientHandler(threading.Thread):
         self.server = server
         self.username = None
         self.is_running = True  # Флаг для управления потоком
-        # self.client_socket.settimeout(60)  # Установка таймаута сокета
         self.logger = logger
         self.ENCODING = encoding
 
@@ -35,7 +34,7 @@ class ClientHandler(threading.Thread):
         try:
             self.username = self.get_username()
             if not self.username:
-                # self.close_connection()  # Если не удалось получить имя, закрываем соединение
+                # Если не удалось получить имя, закрываем соединение
                 return
 
             self.server.broadcast(f"{self.username} присоединился к чату.", exclude=self)
@@ -49,9 +48,6 @@ class ClientHandler(threading.Thread):
 
                     self.handle_message(message)
 
-                # except socket.timeout:
-                #     self.logger.warning(f"Превышено время ожидания от {self.username}. Закрытие соединения.")
-                #     break  # Прекращаем обработку клиента при таймауте сокета
                 except (ConnectionResetError, OSError) as e:
                     self.logger.warning(f"Ошибка при получении сообщения от {self.username}: {e}")
                     break  # Прекращаем обработку клиента при ошибке сокета
@@ -70,22 +66,16 @@ class ClientHandler(threading.Thread):
         try:
             while True:
                 self.client_socket.send("Введите имя пользователя: ".encode(self.ENCODING))
-                # self.client_socket.settimeout(10)  # Таймаут для получения имени пользователя
                 username = self.client_socket.recv(1024).decode(self.ENCODING).strip()
-                # self.client_socket.settimeout(60)  # Сбрасываем таймаут для дальнейшей работы
                 if not username:
                     self.client_socket.send("Имя пользователя не может быть пустым.\n".encode(self.ENCODING))
-                    # return None
-                if self.server.is_username_taken(username):
+                elif len(username.split()) != 1:
+                    self.client_socket.send("Имя пользователя не может содержать пробелы.\n".encode(self.ENCODING))
+                elif self.server.is_username_taken(username):
                     self.client_socket.send("Это имя пользователя уже занято.\n".encode(self.ENCODING))
-                    # return None
                 else:
                     self.client_socket.send("Добро пожаловать в чат!".encode(self.ENCODING))
                     return username
-        # except socket.timeout:
-        #     self.client_socket.send("Превышено время ввода имени пользователя.\n".encode(self.ENCODING))
-        #     self.logger.warning(f"Не удалось получить имя пользователя от {self.client_address} (таймаут)")
-        #     return None  # Возврат None при таймауте
         except (ConnectionResetError, OSError):
             self.logger.warning(f"Не удалось получить имя пользователя от {self.client_address}")
             return None
